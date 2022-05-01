@@ -1,14 +1,14 @@
 #user
 user:
-  username: 193401050107
-  password: Dz08GcHG@6
+  username: 学号
+  password: 智慧沈航密码
 
 #form
 form:
-  name: 解雨洋
-  stunum: 193401050107
-  tel: 13066704022
-  college: 计算机学院
-  province: 辽宁省
-  city: 沈阳市
-  id: 24275
+  name: 姓名
+  stunum: 学号
+  tel: 电话
+  college: 学院
+  province: 当前省份
+  city: 当前城市
+  id: id
