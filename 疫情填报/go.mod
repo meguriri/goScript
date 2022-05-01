@@ -1,0 +1,9 @@
+module script
+
+go 1.15
+
+require (
+	github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394
+	github.com/spf13/viper v1.11.0
+	golang.org/x/text v0.3.7
+)
