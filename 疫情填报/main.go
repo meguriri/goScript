@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/go-gomail/gomail"
 	"github.com/spf13/viper"
 )
 
@@ -22,6 +25,11 @@ var (
 	Province string
 	City     string
 	Id       string
+
+	Sender   string
+	Receiver string
+	password string
+	message  interface{}
 )
 
 func init() {
@@ -41,6 +49,9 @@ func init() {
 	Province = viper.GetString("form.province")
 	City = viper.GetString("form.city")
 	Id = viper.GetString("form.id")
+	Sender = viper.GetString("email.sender")
+	Receiver = viper.GetString("email.receiver")
+	password = viper.GetString("email.password")
 }
 
 func reader(res *http.Response) interface{} {
@@ -50,7 +61,7 @@ func reader(res *http.Response) interface{} {
 	message := make(map[string]interface{})
 	err := json.Unmarshal(body.Bytes(), &message)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
 	}
 	return message["m"]
 }
@@ -64,7 +75,7 @@ func getCookie() []*http.Cookie {
 		},
 	)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
 	}
 	defer res.Body.Close()
 
@@ -73,10 +84,29 @@ func getCookie() []*http.Cookie {
 	return res.Cookies()
 }
 
+func PostMail() {
+	m := gomail.NewMessage()
+	m.SetHeader("From", Sender)      //发送者
+	m.SetHeader("To", Receiver)      //接受者
+	m.SetHeader("Subject", "疫情填报结果") // 邮件标题
+	body := fmt.Sprintf("填报结果: %s", message)
+	m.SetBody("text/html", body)
+	//这里第一个参数为服务器地址，第二个为端口号，第三个为发送者邮箱号
+	d := gomail.NewDialer("smtp.qq.com", 465, Sender, password) //
+
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+
+	if err := d.DialAndSend(m); err != nil {
+		fmt.Println("发送失败: ", err.Error())
+	} else {
+		fmt.Println("发送成功!", message)
+	}
+}
+
 func UploadInfo(cookies []*http.Cookie) {
 
 	data := time.Now().Format("2006-01-02")
-	temp := []string{"36.3", "36.3", "36.3"}
+	temp := []string{"36.3", "36.4", "36.3"}
 	c := new(http.Client)
 
 	req, err := http.NewRequest(
@@ -105,7 +135,7 @@ func UploadInfo(cookies []*http.Cookie) {
 		}.Encode()),
 	)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
 	}
 
 	for _, v := range cookies {
@@ -132,14 +162,24 @@ func UploadInfo(cookies []*http.Cookie) {
 
 	res, err := c.Do(req)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println(err)
 	}
 	defer res.Body.Close()
-
-	log.Println("上传填报信息: ", reader(res))
+	message = reader(res)
 }
 
 func main() {
+	UpTimer := time.NewTimer(time.Hour * 12)
 	cookies := getCookie()
 	UploadInfo(cookies)
+	PostMail()
+	for {
+		select {
+		case <-UpTimer.C:
+			cookies := getCookie()
+			UploadInfo(cookies)
+			PostMail()
+			UpTimer.Reset(time.Hour * 12)
+		}
+	}
 }
